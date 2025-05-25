@@ -1,0 +1,634 @@
+---
+title: "Dubai Real Estate Analysis 2024"
+author: "Mohd Tauseef"
+format:
+  html:
+    toc: true     
+    toc-depth: 3           
+    theme: cosmo         
+    code-fold: true        
+    code-tools: true       
+    page-layout: full     
+    smooth-scroll: true    
+jupyter: python3
+---
+
+
+
+# Import The Required Libraries
+
+
+```{python}
+import pandas as pd
+
+file_path = r"D:\data_analysis\projects\dubai_data\dubai_real_estate_2024.csv"
+
+df = pd.read_csv(file_path)
+```
+
+
+# Overview of the Dataset and Data Cleaning
+```{python}
+df.head(3)
+```
+
+```{python}
+df.columns
+```
+
+```{python}
+df.dtypes
+```
+
+```{python}
+# renmaed columns
+df.rename(columns={
+    'title': 'property_highlights',
+    'displayAddress': 'full_address',
+    'bathrooms': 'number_of_bathrooms',
+    'bedrooms': 'number_of_bedrooms',
+    'type': 'property_type',
+    'price': 'price_in_aed',
+    'verified': 'is_verified',
+    'priceDuration': 'sale_type',
+    'sizeMin': 'area_sqft',
+    'furnishing': 'is_furnished'
+}, inplace=True)
+```
+
+```{python}
+df.head(3)
+```
+
+```{python}
+# extract only the date part as listed_date
+df['listed_date'] = pd.to_datetime(df['addedOn']).dt.date
+```
+
+```{python}
+# drop the original addedOn column
+df.drop(columns=['addedOn'], inplace=True)
+```
+
+```{python}
+df.head(2)
+```
+
+```{python}
+# extracting only city from full address
+df['city'] = df['full_address'].str.split(',').str[-1].str.strip()
+
+df['city'].unique()
+```
+
+```{python}
+df.head(2)
+```
+
+```{python}
+df.dtypes
+```
+
+```{python}
+# Convert number of bathrooms and bedrooms to numeric
+df['number_of_bathrooms'] = pd.to_numeric(df['number_of_bathrooms'], errors = 'coerce')
+df['number_of_bedrooms'] = pd.to_numeric(df['number_of_bedrooms'], errors = 'coerce')
+```
+
+```{python}
+df['number_of_bathrooms'].dtypes
+```
+
+```{python}
+df['area_sqft'].head(3)
+```
+
+```{python}
+# area_sqft is a string with sqft at the end, so i will replace the string with a space'' and make the object type a numeric type 
+df['area_sqft'] = df['area_sqft'].str.replace('sqft', '').str.strip()
+```
+
+```{python}
+df['area_sqft'].head(3)
+```
+
+```{python}
+# Now, I will convert the area_sqft column to numeric
+df['area_sqft'] = pd.to_numeric(df['area_sqft'], errors = 'coerce')
+df['area_sqft'].head(3)  # now it will show the dtype: int64
+```
+
+```{python}
+df.dtypes
+```
+
+```{python}
+# Now I will convert the listed_date column to datetime from object type
+df['listed_date'] = pd.to_datetime(df['listed_date'], errors = 'coerce')
+df['listed_date'].head(3) # now it will show the dtype : datetime
+```
+
+```{python}
+print(df.duplicated().sum())
+```
+
+```{python}
+df[df.duplicated()]
+```
+
+```{python}
+df.drop_duplicates(inplace=True)
+```
+
+```{python}
+df[df.duplicated()]
+```
+
+```{python}
+df.isnull().sum()
+```
+
+```{python}
+# handling missing values
+# i will put the median value of the number of bathrooms and bedrooms
+df['number_of_bedrooms'] = df['number_of_bedrooms'].fillna(df['number_of_bedrooms'].median())
+df['number_of_bathrooms'] = df['number_of_bathrooms'].fillna(df['number_of_bathrooms'].median())
+
+df['is_furnished'] = df['is_furnished'].fillna(df['is_furnished'].mode()[0])
+df['description'] = df['description'].fillna('No description available')
+df.isnull().sum()
+```
+
+# ***A.*** ***Data Summary***
+
+```{python}
+df.shape
+```
+
+```{python}
+df.info()
+```
+
+```{python}
+df.describe() # Numerical columns
+```
+
+```{python}
+df.describe(include='object') # for categorical columns
+```
+
+```{python}
+df.nunique() # number of unique distinct values in each column
+```
+
+```{python}
+df['city'].value_counts()
+```
+
+```{python}
+df['is_furnished'].value_counts()
+```
+
+```{python}
+df['is_verified'].value_counts()
+```
+
+```{python}
+df['is_verified'] == 'NO'
+```
+
+```{python}
+df['is_verified'].value_counts(normalize = True) * 100
+```
+
+## Detailed Aggregations by Key Categorical Features
+
+### Using Groupby to understand more
+
+```{python}
+# Here we will understand the summary, city wise
+
+
+city_group_summary = df.groupby('city').agg(
+    num_listings=('city', 'size'),
+    price_mean=('price_in_aed', 'mean'),
+    price_median=('price_in_aed', 'median'),
+    price_min=('price_in_aed', 'min'),
+    price_max=('price_in_aed', 'max'),
+    price_std=('price_in_aed', 'std'),
+    area_mean=('area_sqft', 'mean'),
+    area_median=('area_sqft', 'median'),
+    area_min=('area_sqft', 'min'),
+    area_max=('area_sqft', 'max'),
+    area_std=('area_sqft', 'std'),
+    bedrooms_mean=('number_of_bedrooms', 'mean'),
+    bedrooms_median=('number_of_bedrooms', 'median'),
+    bathrooms_mean=('number_of_bathrooms', 'mean'),
+    bathrooms_median=('number_of_bathrooms', 'median')
+).sort_values(by='num_listings', ascending=False)
+
+city_group_summary.head(10) # Display top 10 cities by number of listings
+```
+
+```{python}
+# here we will understand the summary, is_furnished column wise
+is_furnished_group_summary = df.groupby('is_furnished').agg(
+    num_listings=('is_furnished', 'size'),
+    price_mean=('price_in_aed', 'mean'),
+    price_median=('price_in_aed', 'median'),
+    price_min=('price_in_aed', 'min'),
+    price_max=('price_in_aed', 'max'),
+    price_std=('price_in_aed', 'std'),
+    area_mean=('area_sqft', 'mean'),
+    area_median=('area_sqft', 'median'),
+    area_min=('area_sqft', 'min'),
+    area_max=('area_sqft', 'max'),
+    area_std=('area_sqft', 'std'),
+    bedrooms_mean=('number_of_bedrooms', 'mean'),
+    bedrooms_median=('number_of_bedrooms', 'median'),
+    bathrooms_mean=('number_of_bathrooms', 'mean'),
+    bathrooms_median=('number_of_bathrooms', 'median')
+).sort_values(by='num_listings', ascending=False)
+
+is_furnished_group_summary
+```
+
+### Using Cross-Tabulations(Frequency of Combinations) : for two (or more) categorical variables.
+
+```{python}
+pd.crosstab(df['is_verified'], df['is_furnished']) # we can find the number of listings verified and furnished
+```
+
+## Summary of Datetime Features
+
+```{python}
+# Listings Count by Year 
+df['listed_date'].dt.year.value_counts()
+```
+
+```{python}
+# Listings Count by month 
+df['listed_date'].dt.month_name().value_counts()
+```
+
+```{python}
+# Listings Count by Year-Month
+df['listed_date'].dt.to_period('M').value_counts().sort_index(ascending=False)
+```
+
+```{python}
+# Listings Count by Year-Month only in 2024
+df['listed_date'].dt.to_period('M').value_counts().loc['2024'].sort_index(ascending = False)
+```
+
+```{python}
+# Number of Listings in 2024
+print(df['listed_date'].dt.to_period('M').value_counts().loc['2024'].sort_index(ascending = False).sum())
+```
+
+***Here we have found that 5003 listing done in 2024, so this dataset best represent the year 2024.***
+
+```{python}
+#First Listing Date: 
+#Last Listing Date:
+#Range of Listings (days)
+#Total number of listings
+
+print(df['listed_date'].min())
+print(df['listed_date'].max())
+print((df['listed_date'].max() - df['listed_date'].min()).days)
+print(df['listed_date'].value_counts().sum())
+```
+
+***Here I am creating a new feature 'price_per_sqft' which will help in getting know about the more detail about prices in Dubai***
+
+```{python}
+df['price_per_sqft'] = df['price_in_aed'] / df['area_sqft']
+df['price_per_sqft'].describe()
+```
+
+```{python}
+df.groupby('city')['price_per_sqft'].mean().sort_values(ascending=False).head(10).round(2)
+
+# So we have found that top 3 cities with the highest price per sqft are: Dubai, Umm Al Quwain, and Abu Dhabi
+```
+
+# ***B.*** ***Univariate Analysis***
+
+***We have use Histograms & KDE plots to understand the distribution :** ***This section focuses on visualizing the distribution of individual columns to understand their shape, central tendency, spread, and common values.***
+
+```{python}
+# Histogram for price_in_aed and price_per_sqft
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 2, 1)
+sns.histplot(df['price_in_aed'], bins=30, kde=True)
+plt.title('Price Distribution')
+plt.xlabel('Price in AED')
+plt.ylabel('Frequency')
+
+plt.subplot(1, 2, 2)
+sns.histplot(df['price_per_sqft'], bins=30, kde=True)
+plt.title('Price per Sqft Distribution')
+plt.xlabel('Price per Sqft')
+plt.ylabel('Frequency')
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+plt.figure(figsize=(10, 6))
+sns.countplot(x='city', data=df, palette='rocket', hue='city', legend=False,
+              order=df['city'].value_counts().index)
+
+plt.title('Number of Listings by City')
+plt.xlabel('City')
+plt.ylabel('Number of Listings')
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Number of Listings by furnished
+plt.figure(figsize=(10,5)) # Adjust figure size
+
+sns.countplot(x=df['is_furnished'],data = df, palette='rocket',hue='is_furnished', legend=False, order=df['is_furnished'].value_counts().index)
+plt.title('Number of Listings by Furnished')
+plt.xlabel('Furnished')
+plt.ylabel('Number of Listings') 
+plt.tight_layout()
+
+plt.show()
+```
+
+# ***C.*** ***Bivariate Analysis***
+
+***This section focuses on visualizing the relationships between pairs of variables.***
+
+```{python}
+# Price vs. Area (Scatter Plot)
+
+plt.figure(figsize=(10,6))
+sns.scatterplot(x='area_sqft', y='price_in_aed', data=df, alpha=0.6)
+plt.title('Price vs. Area')
+plt.xlabel('Area (sqft)')
+plt.ylabel('Price (AED)')
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+# a linear scale would compress all the small values into a tiny space, making them impossible to distinguish. A log scale spreads them out.
+
+plt.figure(figsize=(10,6))
+sns.scatterplot(x='area_sqft', y='price_in_aed', data=df, color='red', alpha=0.6)
+plt.title('Price vs. Area (log scale)')
+plt.xlabel('Area (sqft)')
+plt.ylabel('Price (AED)')
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.xscale('log')
+plt.tight_layout()
+plt.show()
+```
+
+***Let's discuss three points in the above graphs:  First which is nearest zero, tells us that the property have very small area as well as its price accordingly. Second : the property which is largest in area but its price are not too much high, perhaps, because property may not be furnished and location might not be desirable in general. Third property we can understand is that which have very high prices but not that much of area of land. So, there could be assumpstions like property is very valueable because of location and furnishing, etc.***
+
+```{python}
+# This will show the relationship between price and area in a more linear fashion, making it easier to see some outliers and trends.
+
+plt.figure(figsize=(10, 5)) 
+sns.scatterplot(x='city', y='price_in_aed', data=df, alpha=0.3, edgecolor=None)
+plt.title('Price (AED) per Listing in Each City', fontsize=16)
+plt.xlabel('City', fontsize=14)
+plt.ylabel('Price (AED)', fontsize=14)
+plt.xticks(rotation=45, ha='right') 
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.tight_layout() 
+plt.show()
+```
+
+# Regression Analysis
+
+```{python}
+# regression (Price vs Area)
+plt.figure(figsize=(10, 6))
+sns.regplot(x='area_sqft', y='price_in_aed', data=df.dropna(subset=['area_sqft', 'price_in_aed']), 
+            scatter_kws={'alpha': 0.3}, line_kws={'color': 'red'})
+plt.title('Price vs Area')
+plt.xlabel('Area (sqft)')
+plt.ylabel('Price (AED)')
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.show()
+
+
+# Regression by verification status
+
+sns.lmplot(x='area_sqft', y='price_in_aed', hue='is_verified',
+           data=df.dropna(subset=['area_sqft', 'price_in_aed', 'is_verified']),
+           scatter_kws={'alpha': 0.3}, height=6)
+plt.title('Price vs Area by Verification Status')
+plt.xlabel('Area (sqft)')
+plt.ylabel('Price (AED)')
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.show()
+```
+
+# How to read the scatter plot with regression line:
+***->Positive correlation: The red line is sloping upward, it means larger properties tend to be more expensive.***
+***->If points are widely scattered around the line, the relationship is weak or inconsistent.***
+***->If points are close to the line, the relationship is stronger.***
+***->There are some properties that are very expensive or very cheap for their size.***
+***->The shadow around the line indicates the range of prices for properties of a given size. uncertainty in the price prediction. confidence interval is the shade around the line.***
+
+***Verification Status : Trends between verified and non-verified properties. ->The verified line is consistently higher, verified properties may cost more for the same area. It may indicate premium pricing for verified listings, possibly due to higher trust, better quality, or location.***
+
+```{python}
+# Heatmap of Crosstabulations, using pd.crosstab()
+# Verified vs. Is Furnished
+crosstab_verified_furnished = pd.crosstab(df['is_verified'], df['is_furnished'])
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(crosstab_verified_furnished, annot=True, fmt='d', cmap='rocket', linewidths=.5, linecolor='black')
+plt.title('Number of Listings: Verified Status vs. Furnishing Status', fontsize=16)
+plt.xlabel('Is Furnished', fontsize=14)
+plt.ylabel('Is Verified', fontsize=14)
+plt.xticks(ticks=[0, 1, 2], labels=crosstab_verified_furnished.columns)
+plt.yticks(ticks=[0, 1], labels=['False', 'True'])
+plt.show()
+```
+
+***Here have found that 795 listings are furnished as well as verified.***
+
+# ***D.*** ***Time-Based Analysis***
+
+```{python}
+# Listings Trend Over Time (Weekly/Monthly)
+# Set 'listed_date' as index for time series resampling
+df_time = df.set_index('listed_date')
+
+# Resample to weekly frequency and count listings
+weekly_listings = df_time.resample('W').size().reset_index(name='count')
+
+plt.figure(figsize=(10, 6))
+sns.lineplot(x='listed_date', y='count', data=weekly_listings, marker='o', linestyle='-')
+plt.title('Weekly Trend of Property Listings', fontsize=16)
+plt.xlabel('Date')
+plt.ylabel('Number of Listings')
+plt.grid()
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Monthly Listings Trend:
+
+monthly_listings = df_time.resample('ME').size().reset_index(name='count')
+
+plt.figure(figsize=(10,6))
+sns.lineplot(x='listed_date', y='count', data=monthly_listings, marker='o', linestyle='-')
+plt.title('Monthly Trend of Property Listings')
+plt.xlabel('Date')
+plt.ylabel('Number of Listings')
+plt.grid()
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Here we will see on for 2024 year, number of listings by month
+
+list_2024 = df[df['listed_date'].dt.year==2024]
+month_2024 = list_2024.resample('ME', on='listed_date').size().reset_index(name='count')
+
+sns.lineplot(x='listed_date', y='count', data=month_2024, marker='o', linestyle='-')
+plt.title('Monthly Trend of Property Listings in 2024')
+plt.xlabel('Date')
+plt.ylabel('Monthly_listings')
+plt.grid()
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+***busy periods : months of 2024 -> may, jun, jul, aug, sep***
+***quiet periods : months like jan, feb, mar, apr***
+
+# Feature Engineering
+
+***-> One feature we have already created, price_per_sqft. Next would be the property is luxury or not, we categorize the property on the basis of 'price_in_aed'.***
+
+```{python}
+# Feature name is_luxury
+threshold = 10000000
+
+df['is_luxury'] = df['price_in_aed'] > threshold
+
+df[['price_in_aed', 'is_luxury']].head(5)   
+```
+
+```{python}
+# first 10 luxury properties in dataset
+df[df['is_luxury'] == True][['price_in_aed', 'is_luxury', 'property_highlights']].head(5)
+```
+
+```{python}
+# Top 10 highest priced luxury listings
+df.sort_values(by='price_in_aed', ascending=False)[['price_in_aed', 'is_luxury', 'property_highlights']].head(10)
+```
+
+```{python}
+# Top 10 luxury penthouse 
+df[df['property_highlights'].str.contains('penthouse', case=False, na=False)][[
+        'area_sqft','property_highlights', 'price_in_aed','is_furnished','city', 'is_luxury']].sort_values(
+            by=['price_in_aed','area_sqft'], ascending=False).head(10)    
+```
+
+# Visualization using Pair Plot
+
+```{python}
+# Pairplot of main numerical features 
+num_cols = ['price_in_aed', 'area_sqft','number_of_bedrooms', 'number_of_bathrooms']
+
+sns.pairplot(df.dropna(subset=num_cols + ['is_luxury']), vars=num_cols, hue='is_luxury', diag_kind='kde', plot_kws={'alpha': 0.3})
+
+
+plt.suptitle('Pairplot of Key Numerical Features', y=1.02, fontsize=16)
+plt.show()
+```
+
+
+***1. we can understand the relationship between area_sqft and price_in_aed as we have seen earlier charts -> in Bivariate Analysis***
+
+
+
+# Viz using Plotly for Interactivity
+
+```{python}
+import plotly.express as px
+```
+
+```{python}
+# City wise average price for properties
+city_avg_price = df.groupby('city')['price_in_aed'].mean().reset_index().sort_values(by='price_in_aed', ascending=False)
+
+# bar chart for 2 cols
+fig = px.bar(city_avg_price,x='city',y='price_in_aed',title='City-wise Average Property Prices (AED)',
+    labels={'price_in_aed': 'Average Price (AED)', 'city': 'City'},
+    color='price_in_aed',
+    color_continuous_scale='Reds',
+    text_auto='.2s' # so we can see the price in the bar
+)
+
+fig.show()
+
+```
+
+```{python}
+list_2024 = df[df['listed_date'].dt.year==2024]
+df_monthly = list_2024.resample('ME', on='listed_date').size().reset_index(name='listing_count') # same code as i used earlier for monthly listings in 2024
+
+fig = px.line(
+    df_monthly,  # or df_weekly
+    x='listed_date',
+    y='listing_count',
+    title='Dubai Real Estate Listings Over Time',
+    labels={'listed_date': 'Date', 'listing_count': 'Number of Listings'},
+    markers=True
+)
+
+fig.show()
+```
+
+***This is very helpful, let say if we want to visualize the data only from june to sep, then we can select interectively, earlier chart were not that much interective***
+
+# Some Problem Solving Through ANalysis
+***1. Which cities have the highest-priced listings?***
+
+***2. How does being “verified” affect pricing?***
+
+***3. Are furnished properties more expensive?***
+
+```{python}
+# 1. Which cities have the highest-priced listings?
+df.groupby('city')['price_in_aed'].max().reset_index().sort_values(by='price_in_aed', ascending=False)
+```
+
+```{python}
+# 2. How does being “verified” affect pricing?
+df.groupby('is_verified')['price_in_aed'].mean().reset_index().sort_values(by='price_in_aed', ascending=False)
+```
+
+```{python}
+# 3. Are furnished properties more expensive?
+df.groupby('is_furnished')['price_in_aed'].mean().reset_index().sort_values(by='price_in_aed', ascending=False)
+```
+
+```{python}
+# To save this file as a html file.
+df.to_html('dubai_real_estate_2024.html', index=False)
+```
+
